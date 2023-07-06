@@ -9,6 +9,7 @@ import jakarta.xml.bind.Marshaller;
 import jakarta.xml.bind.Unmarshaller;
 import org.slf4j.Logger;
 import org.springframework.stereotype.Component;
+import org.springframework.web.multipart.MultipartFile;
 import org.xml.sax.SAXException;
 
 import javax.xml.XMLConstants;
@@ -21,17 +22,19 @@ import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.StringWriter;
+import java.util.Objects;
 
 
 @Component
 public class XmlValidatorUtil {
     private static final Logger logger = org.slf4j.LoggerFactory.getLogger(XmlValidatorUtil.class);
 
-    public boolean isValidXmlFile(String xsdPath, String xmlPath) throws IOException, SAXException {
+    public boolean isValidXmlFile(File xsdPath, File xmlPath) throws IOException, SAXException {
         Validator validator = initValidator(xsdPath);
 
         try {
-            validator.validate(new StreamSource(getFile(xmlPath)));
+
+            validator.validate(new StreamSource(xmlPath));
             return true;
         } catch (SAXException e) {
             logger.error("Error while validating XML: {}", e.getMessage());
@@ -40,15 +43,32 @@ public class XmlValidatorUtil {
 
     }
 
-    private Validator initValidator(String xsdPath) throws SAXException {
+    private Validator initValidator(File xsdPath) throws SAXException {
         SchemaFactory factory = SchemaFactory.newInstance(XMLConstants.W3C_XML_SCHEMA_NS_URI);
-        Source schemaFile = new StreamSource(getFile(xsdPath));
+        Source schemaFile = new StreamSource(xsdPath);
         Schema schema = factory.newSchema(schemaFile);
         return schema.newValidator();
     }
 
     private File getFile(String location) {
         return new File(location).getAbsoluteFile();
+    }
+
+    public File geFileFromMultiPart(MultipartFile file) throws IOException {
+        if (file == null) {
+            throw new IOException("File is null");
+        }
+
+        File convFile = new File(Objects.requireNonNull(file.getOriginalFilename()));
+        if (convFile.createNewFile()) {
+            FileOutputStream fos = new FileOutputStream(convFile);
+            fos.write(file.getBytes());
+            fos.close();
+            return convFile;
+        }
+
+        return convFile;
+
     }
 
     public String convertXmlToJson(final String xmlPath) throws JAXBException, IOException {
